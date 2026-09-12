@@ -15,10 +15,13 @@
 // ============================================================
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCVHlPwm0ARTOimXvhRwK3s_aq4VHhzerY",
+  authDomain: "ff-manage-5a185.firebaseapp.com",
+  projectId: "ff-manage-5a185",
+  storageBucket: "ff-manage-5a185.firebasestorage.app",
+  messagingSenderId: "346738219850",
+  appId: "1:346738219850:web:081091ed07053a25693fb3",
+  measurementId: "G-CC4XXP5DTJ"
 };
