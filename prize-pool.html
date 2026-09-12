@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — Prize Pool</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main" id="page-content">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Prize pool</div>
+        <h1>Distribution &amp; payment status</h1>
+        <p>Who's owed what, and who's already been paid. Players can check their own payment history in detail after logging in.</p>
+      </div>
+    </div>
+
+    <div class="stat-strip" id="statStrip">
+      <div class="stat"><div class="stat-label">Total distributed</div><div class="stat-value accent">—</div></div>
+      <div class="stat"><div class="stat-label">Paid</div><div class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">Pending</div><div class="stat-value">—</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="mb-0">Payments by player</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Player</th><th>Match</th><th class="num">Amount</th><th>Status</th></tr>
+          </thead>
+          <tbody id="payRows">
+            <tr><td colspan="4" class="loading-row">Loading payments…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="small text-faint mt-24">Amounts and status are set by the admin after each match. If something looks off, ping the admin directly — payment proofs are visible to admins and the player concerned via their login.</p>
+  </main>
+</div>
+
+<script type="module">
+  import { renderShell } from "./assets/js/nav.js";
+  import { fetchAll, fmtMoney, statusBadge, escapeHtml } from "./assets/js/db.js";
+
+  renderShell("prize");
+
+  async function load() {
+    let payments = [];
+    let players = [];
+    let matches = [];
+    try {
+      [payments, players, matches] = await Promise.all([
+        fetchAll("payments", "createdAt", "desc"),
+        fetchAll("players"),
+        fetchAll("matches")
+      ]);
+    } catch (e) {
+      console.error(e);
+      document.getElementById("payRows").innerHTML = `<tr><td colspan="4" class="empty"><p>Couldn't load payments.</p></td></tr>`;
+      return;
+    }
+
+    const playerMap = Object.fromEntries(players.map(p => [p.id, p]));
+    const matchMap = Object.fromEntries(matches.map(m => [m.id, m]));
+
+    const rowsEl = document.getElementById("payRows");
+    rowsEl.innerHTML = payments.length ? payments.map(p => {
+      const player = playerMap[p.playerId];
+      const match = matchMap[p.matchId];
+      return `
+        <tr>
+          <td>${escapeHtml(player ? player.ign : "Unknown player")}</td>
+          <td>${escapeHtml(match ? match.title : (p.matchTitle || "—"))}</td>
+          <td class="num">${fmtMoney(p.amount)}</td>
+          <td>${statusBadge(p.status || "pending")}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="4"><div class="empty"><div class="empty-icon">◈</div><p>No payment records yet.</p></div></td></tr>`;
+
+    const total = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const paid = payments.filter(p => p.status === "paid").reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const pending = total - paid;
+
+    const values = document.querySelectorAll("#statStrip .stat-value");
+    values[0].textContent = fmtMoney(total);
+    values[1].textContent = fmtMoney(paid);
+    values[2].textContent = fmtMoney(pending);
+  }
+
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — Schedule</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main" id="page-content">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Schedule</div>
+        <h1>Upcoming &amp; past matches</h1>
+        <p>Room ID and password appear here once the admin sets them for a match.</p>
+      </div>
+      <div class="field" style="min-width:180px;margin:0;">
+        <select id="filterStatus">
+          <option value="all">All matches</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="live">Live</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div class="row-list" id="matchList">
+          <div class="loading-row">Loading schedule…</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  import { renderShell } from "./assets/js/nav.js";
+  import { fetchAll, fmtDateTime, statusBadge, escapeHtml } from "./assets/js/db.js";
+
+  renderShell("schedule");
+
+  let allMatches = [];
+
+  function render(filter) {
+    const list = document.getElementById("matchList");
+    const items = filter === "all" ? allMatches : allMatches.filter(m => (m.status || "upcoming") === filter);
+
+    list.innerHTML = items.length ? items.map(m => `
+      <div class="row-item" style="align-items:flex-start;">
+        <div class="rl-date">${fmtDateTime(m.date)}</div>
+        <div class="rl-main">
+          <div class="rl-title">${escapeHtml(m.title || "Untitled match")}</div>
+          <div class="rl-sub">
+            ${escapeHtml(m.mode || "Squad")} · ${escapeHtml(m.map || "Map TBA")}
+            ${m.teams ? " · " + escapeHtml(m.teams) : ""}
+          </div>
+          ${(m.status === "upcoming" || m.status === "live") && (m.roomId || m.roomPass) ? `
+            <div class="small mono text-muted" style="margin-top:6px;">
+              Room ID: ${escapeHtml(m.roomId || "—")} &nbsp; Pass: ${escapeHtml(m.roomPass || "—")}
+            </div>
+          ` : ""}
+          ${m.stream ? `<div class="small" style="margin-top:4px;"><a href="${escapeHtml(m.stream)}" target="_blank" rel="noopener">Watch stream →</a></div>` : ""}
+        </div>
+        ${statusBadge(m.status || "upcoming")}
+      </div>
+    `).join("") : `<div class="empty"><div class="empty-icon">▤</div><p>No matches in this filter.</p></div>`;
+  }
+
+  async function load() {
+    try {
+      allMatches = await fetchAll("matches", "date");
+    } catch (e) {
+      console.error(e);
+      document.getElementById("matchList").innerHTML = `<div class="empty"><p>Couldn't load matches. Check your Firebase setup.</p></div>`;
+      return;
+    }
+    render("all");
+  }
+
+  document.getElementById("filterStatus").addEventListener("change", (e) => render(e.target.value));
+  load();
+</script>
+</body>
+</html>

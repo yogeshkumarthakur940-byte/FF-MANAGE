@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — Roster</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main" id="page-content">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Roster</div>
+        <h1>Players &amp; teams</h1>
+        <p>Who's playing under which squad, and their in-game details.</p>
+      </div>
+    </div>
+
+    <div id="rosterByTeam">
+      <div class="loading-row">Loading roster…</div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  import { renderShell } from "./assets/js/nav.js";
+  import { fetchAll, escapeHtml } from "./assets/js/db.js";
+
+  renderShell("roster");
+
+  function initials(name) {
+    return (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  }
+
+  async function load() {
+    let players = [];
+    let teams = [];
+    try {
+      [players, teams] = await Promise.all([fetchAll("players"), fetchAll("teams")]);
+    } catch (e) {
+      console.error(e);
+      document.getElementById("rosterByTeam").innerHTML = `<div class="empty"><p>Couldn't load roster.</p></div>`;
+      return;
+    }
+
+    const wrap = document.getElementById("rosterByTeam");
+    if (!players.length) {
+      wrap.innerHTML = `<div class="panel"><div class="empty"><div class="empty-icon">☰</div><p>No players added yet.</p></div></div>`;
+      return;
+    }
+
+    const teamMap = Object.fromEntries(teams.map(t => [t.id, t]));
+    const groups = {};
+    players.forEach(p => {
+      const key = p.teamId || "_none";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    });
+
+    wrap.innerHTML = Object.entries(groups).map(([teamId, list]) => {
+      const team = teamMap[teamId];
+      const teamName = team ? team.name : "Unassigned";
+      const rows = list.map(p => `
+        <div class="player-row">
+          <div class="avatar">${initials(p.ign || p.name)}</div>
+          <div>
+            <div class="pr-name">${escapeHtml(p.ign || p.name || "Unnamed")}</div>
+            <div class="pr-sub">FF ID: ${escapeHtml(p.playerId || "—")} ${p.role ? "· " + escapeHtml(p.role) : ""}</div>
+          </div>
+        </div>
+      `).join("");
+
+      return `
+        <div class="panel section">
+          <div class="panel-head">
+            <h2 class="mb-0">${escapeHtml(teamName)}</h2>
+            <span class="small text-faint">${list.length} player${list.length === 1 ? "" : "s"}</span>
+          </div>
+          <div class="row-list">${rows}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  load();
+</script>
+</body>
+</html>

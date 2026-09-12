@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — Login</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div style="margin-bottom:22px;">
+      <span class="mark">FF</span> <strong style="font-family:var(--font-display);font-size:20px;">HUB</strong>
+      <p class="small" style="margin-top:6px;">Sign in with the email and password your admin set up for you.</p>
+    </div>
+
+    <div class="msg" id="msg"></div>
+
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-accent" style="width:100%;justify-content:center;" id="loginBtn">Sign in</button>
+    </form>
+
+    <p class="small text-faint" style="margin-top:18px;">Don't have a login? Ask your team admin to add you as a player — no self-signup, to keep payment records private.</p>
+    <p class="small"><a href="index.html">← Back to the public site</a></p>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, signInWithEmailAndPassword, onAuthStateChanged, isAdmin, getPlayerByUid } from "./assets/js/db.js";
+
+  const form = document.getElementById("loginForm");
+  const msg = document.getElementById("msg");
+  const btn = document.getElementById("loginBtn");
+
+  function showMsg(text, ok = false) {
+    msg.textContent = text;
+    msg.className = "msg show " + (ok ? "ok" : "err");
+  }
+
+  // if already logged in, redirect straight away
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+    const admin = await isAdmin(user.uid);
+    if (admin) { window.location.href = "admin/dashboard.html"; return; }
+    const player = await getPlayerByUid(user.uid);
+    if (player) { window.location.href = "player/dashboard.html"; return; }
+    showMsg("Your account isn't linked to a player or admin profile yet. Ask your admin to link it.");
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    btn.disabled = true;
+    btn.textContent = "Signing in…";
+    msg.className = "msg";
+    try {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged above handles the redirect
+    } catch (err) {
+      console.error(err);
+      showMsg("Couldn't sign in — check your email and password and try again.");
+      btn.disabled = false;
+      btn.textContent = "Sign in";
+    }
+  });
+</script>
+</body>
+</html>

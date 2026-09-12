@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — Overview</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main" id="page-content">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Overview</div>
+        <h1>Squad ops dashboard</h1>
+        <p>Upcoming matches, recent results and where the prize money stands.</p>
+      </div>
+    </div>
+
+    <div id="heroSlot"></div>
+
+    <div class="stat-strip" id="statStrip">
+      <div class="stat"><div class="stat-label">Matches this month</div><div class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">Active players</div><div class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">Prize pool paid out</div><div class="stat-value accent">—</div></div>
+      <div class="stat"><div class="stat-label">Payments pending</div><div class="stat-value">—</div></div>
+    </div>
+
+    <div class="section">
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="mb-0">Next up</h2>
+          <a href="schedule.html" class="btn btn-sm btn-ghost">Full schedule →</a>
+        </div>
+        <div class="row-list" id="upcomingList">
+          <div class="loading-row">Loading matches…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="mb-0">Latest result</h2>
+          <a href="results.html" class="btn btn-sm btn-ghost">All results →</a>
+        </div>
+        <div class="row-list" id="latestResult">
+          <div class="loading-row">Loading results…</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  import { renderShell } from "./assets/js/nav.js";
+  import { fetchAll, fmtDateTime, fmtDate, fmtMoney, statusBadge, escapeHtml } from "./assets/js/db.js";
+
+  renderShell("overview");
+
+  async function load() {
+    let matches = [];
+    let results = [];
+    try { matches = await fetchAll("matches", "date"); } catch (e) { console.error(e); }
+    try { results = await fetchAll("results", "createdAt", "desc"); } catch (e) { console.error(e); }
+
+    const now = Date.now();
+    const upcoming = matches.filter(m => new Date(m.date).getTime() >= now || m.status === "upcoming" || m.status === "live");
+    const heroSlot = document.getElementById("heroSlot");
+    const upcomingList = document.getElementById("upcomingList");
+    const latestResult = document.getElementById("latestResult");
+
+    if (upcoming.length) {
+      const next = upcoming[0];
+      heroSlot.innerHTML = `
+        <div class="hero-match">
+          <div class="hm-label">Next match ${statusBadge(next.status || 'upcoming')}</div>
+          <h2>${escapeHtml(next.title || 'Untitled match')}</h2>
+          <div class="hm-meta">
+            <span>${fmtDateTime(next.date)}</span>
+            <span>${escapeHtml(next.mode || 'Squad')}</span>
+            <span>${escapeHtml(next.map || 'Map TBA')}</span>
+          </div>
+        </div>
+      `;
+    } else {
+      heroSlot.innerHTML = "";
+    }
+
+    upcomingList.innerHTML = upcoming.length ? upcoming.slice(0, 5).map(m => `
+      <div class="row-item">
+        <div class="rl-date">${fmtDate(m.date)}</div>
+        <div class="rl-main">
+          <div class="rl-title">${escapeHtml(m.title || 'Untitled match')}</div>
+          <div class="rl-sub">${escapeHtml(m.mode || 'Squad')} · ${escapeHtml(m.map || 'Map TBA')}</div>
+        </div>
+        ${statusBadge(m.status || 'upcoming')}
+      </div>
+    `).join("") : `<div class="empty"><div class="empty-icon">▤</div><p>No matches scheduled yet. Check back soon.</p></div>`;
+
+    latestResult.innerHTML = results.length ? results.slice(0, 3).map(r => `
+      <div class="row-item">
+        <div class="rl-date">${fmtDate(r.date)}</div>
+        <div class="rl-main">
+          <div class="rl-title">${escapeHtml(r.matchTitle || 'Match result')}</div>
+          <div class="rl-sub">${r.winnerTeam ? "Winner: " + escapeHtml(r.winnerTeam) : ""}</div>
+        </div>
+        <span class="mono text-muted">${fmtMoney(r.totalPrize)}</span>
+      </div>
+    `).join("") : `<div class="empty"><div class="empty-icon">▥</div><p>No results uploaded yet.</p></div>`;
+
+    // stats
+    const paid = results.reduce((sum, r) => sum + (Number(r.totalPrize) || 0), 0);
+    let pendingCount = 0;
+    try {
+      const payments = await fetchAll("payments");
+      pendingCount = payments.filter(p => p.status !== "paid").length;
+    } catch (e) { /* payments may not exist yet */ }
+    let playerCount = 0;
+    try {
+      const players = await fetchAll("players");
+      playerCount = players.length;
+    } catch (e) {}
+    const thisMonth = matches.filter(m => {
+      const d = new Date(m.date);
+      const n = new Date();
+      return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
+    }).length;
+
+    const values = document.querySelectorAll("#statStrip .stat-value");
+    values[0].textContent = thisMonth;
+    values[1].textContent = playerCount;
+    values[2].textContent = fmtMoney(paid);
+    values[3].textContent = pendingCount;
+  }
+
+  load();
+</script>
+</body>
+</html>

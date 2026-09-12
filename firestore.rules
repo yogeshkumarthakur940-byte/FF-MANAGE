@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // One doc per admin, doc id == their Auth UID. Value can be anything,
+    // e.g. { name: "Owner" } — only existence is checked.
+    match /admins/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false; // add admins manually from the Firebase console
+    }
+
+    // Public roster info — visible to everyone, editable by admins only.
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Matches & results are public info (schedule, scores).
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /results/{resultId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Payments: everyone can read the list for transparency (amount + status),
+    // but only admins can create/edit/delete. If you'd rather keep amounts
+    // private and only let a player see their own, change `allow read` to:
+    //   allow read: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
