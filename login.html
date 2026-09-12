@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FF Hub — Login</title>
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="auth-wrap">
@@ -34,7 +34,7 @@
 </div>
 
 <script type="module">
-  import { auth, signInWithEmailAndPassword, onAuthStateChanged, isAdmin, getPlayerByUid } from "./assets/js/db.js";
+  import { auth, signInWithEmailAndPassword, onAuthStateChanged, isAdmin, getPlayerByUid } from "./db.js";
 
   const form = document.getElementById("loginForm");
   const msg = document.getElementById("msg");
