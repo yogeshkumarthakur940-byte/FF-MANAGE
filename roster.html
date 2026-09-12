@@ -60,15 +60,21 @@
     wrap.innerHTML = Object.entries(groups).map(([teamId, list]) => {
       const team = teamMap[teamId];
       const teamName = team ? team.name : "Unassigned";
-      const rows = list.map(p => `
-        <div class="player-row">
-          <div class="avatar">${initials(p.ign || p.name)}</div>
-          <div>
-            <div class="pr-name">${escapeHtml(p.ign || p.name || "Unnamed")}</div>
-            <div class="pr-sub">FF ID: ${escapeHtml(p.playerId || "—")} ${p.role ? "· " + escapeHtml(p.role) : ""}</div>
+      const rows = list.map(p => {
+        // Skill check: handles both 'skills' array/string or 'skill' field from Firestore
+        const skillText = Array.isArray(p.skills) ? p.skills.join(", ") : (p.skills || p.skill || "");
+
+        return `
+          <div class="player-row">
+            <div class="avatar">${initials(p.ign || p.name)}</div>
+            <div>
+              <div class="pr-name">${escapeHtml(p.ign || p.name || "Unnamed")}</div>
+              <div class="pr-sub">FF ID: ${escapeHtml(p.playerId || "—")} ${p.role ? "· " + escapeHtml(p.role) : ""}</div>
+              ${skillText ? `<div class="pr-sub" style="color: var(--accent, #ff8c00); margin-top: 2px;">⚡ Skills: ${escapeHtml(skillText)}</div>` : ''}
+            </div>
           </div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
 
       return `
         <div class="panel section">
