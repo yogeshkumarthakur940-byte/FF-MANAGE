@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF Hub — My Dashboard</title>
+<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main" id="page-content">
+    <div id="gate" class="empty" style="padding-top:60px;">
+      <p>Checking your login…</p>
+    </div>
+
+    <div id="content" style="display:none;">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">My dashboard</div>
+          <h1 id="playerName">—</h1>
+          <p>Your profile, squad and payment history. Only visible to you and the admin.</p>
+        </div>
+      </div>
+
+      <div class="stat-strip">
+        <div class="stat"><div class="stat-label">In-game ID</div><div class="stat-value mono" id="statFfid" style="font-size:18px;">—</div></div>
+        <div class="stat"><div class="stat-label">Squad</div><div class="stat-value" id="statTeam" style="font-size:18px;">—</div></div>
+        <div class="stat"><div class="stat-label">Total received</div><div class="stat-value accent" id="statReceived">—</div></div>
+        <div class="stat"><div class="stat-label">Pending</div><div class="stat-value" id="statPending">—</div></div>
+      </div>
+
+      <div class="panel section">
+        <div class="panel-head"><h2 class="mb-0">Payment history</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Match</th><th>Date</th><th class="num">Amount</th><th>Status</th><th>Proof</th></tr></thead>
+            <tbody id="payRows">
+              <tr><td colspan="5" class="loading-row">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel section">
+        <div class="panel-head"><h2 class="mb-0">My profile</h2></div>
+        <div class="panel-body pad">
+          <div class="field-row">
+            <div class="field"><label>In-game name</label><div id="pName">—</div></div>
+            <div class="field"><label>Role</label><div id="pRole">—</div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Contact</label><div id="pContact">—</div></div>
+            <div class="field"><label>Joined</label><div id="pJoined">—</div></div>
+          </div>
+          <p class="small text-faint">To update any of this, ask your admin — it keeps the roster consistent across matches.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="ssModal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-head"><h3 class="mb-0">Payment proof</h3><button class="close-x" id="closeSs">&times;</button></div>
+    <div class="modal-body"><img id="ssImg" src="" alt="Payment screenshot" style="width:100%;border-radius:3px;border:1px solid var(--line);"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { renderShell } from "../assets/js/nav.js";
+  import {
+    auth, onAuthStateChanged, getPlayerByUid, fetchWhere, fetchAll,
+    fmtDate, fmtMoney, statusBadge, escapeHtml
+  } from "../assets/js/db.js";
+
+  renderShell(null);
+
+  onAuthStateChanged(auth, async (user) => {
+    const gate = document.getElementById("gate");
+    if (!user) {
+      gate.innerHTML = `<p>You need to <a href="../login.html">sign in</a> to view your dashboard.</p>`;
+      return;
+    }
+    const player = await getPlayerByUid(user.uid);
+    if (!player) {
+      gate.innerHTML = `<p>Your login isn't linked to a player profile yet. Ask your admin to link it.</p>`;
+      return;
+    }
+
+    gate.style.display = "none";
+    document.getElementById("content").style.display = "block";
+    document.getElementById("playerName").textContent = player.ign || player.name || "Player";
+    document.getElementById("statFfid").textContent = player.playerId || "—";
+    document.getElementById("pName").textContent = player.ign || player.name || "—";
+    document.getElementById("pRole").textContent = player.role || "—";
+    document.getElementById("pContact").textContent = player.contact || "—";
+    document.getElementById("pJoined").textContent = player.joinedDate ? fmtDate(player.joinedDate) : "—";
+
+    let teamName = "Unassigned";
+    if (player.teamId) {
+      try {
+        const teams = await fetchAll("teams");
+        const t = teams.find(t => t.id === player.teamId);
+        if (t) teamName = t.name;
+      } catch (e) {}
+    }
+    document.getElementById("statTeam").textContent = teamName;
+
+    let payments = [];
+    try {
+      payments = await fetchWhere("payments", "playerId", "==", player.id, "createdAt");
+    } catch (e) { console.error(e); }
+
+    let matches = [];
+    try { matches = await fetchAll("matches"); } catch (e) {}
+    const matchMap = Object.fromEntries(matches.map(m => [m.id, m]));
+
+    const rowsEl = document.getElementById("payRows");
+    rowsEl.innerHTML = payments.length ? payments.map(p => {
+      const match = matchMap[p.matchId];
+      return `
+        <tr>
+          <td>${escapeHtml(match ? match.title : (p.matchTitle || "—"))}</td>
+          <td class="mono small">${fmtDate(p.date || match?.date)}</td>
+          <td class="num">${fmtMoney(p.amount)}</td>
+          <td>${statusBadge(p.status || "pending")}</td>
+          <td>${p.screenshotUrl ? `<a href="#" class="view-ss" data-src="${escapeHtml(p.screenshotUrl)}">View</a>` : "—"}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="5"><div class="empty"><p>No payments recorded yet.</p></div></td></tr>`;
+
+    document.querySelectorAll(".view-ss").forEach(el => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        document.getElementById("ssImg").src = el.dataset.src;
+        document.getElementById("ssModal").classList.add("show");
+      });
+    });
+
+    const received = payments.filter(p => p.status === "paid").reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const pending = payments.filter(p => p.status !== "paid").reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    document.getElementById("statReceived").textContent = fmtMoney(received);
+    document.getElementById("statPending").textContent = fmtMoney(pending);
+  });
+
+  document.getElementById("closeSs").addEventListener("click", () => document.getElementById("ssModal").classList.remove("show"));
+  document.getElementById("ssModal").addEventListener("click", (e) => { if (e.target.id === "ssModal") e.currentTarget.classList.remove("show"); });
+</script>
+</body>
+</html>
