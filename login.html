@@ -45,13 +45,13 @@
     msg.className = "msg show " + (ok ? "ok" : "err");
   }
 
-  // if already logged in, redirect straight away
+  // If already logged in, redirect straight away to flat filenames
   onAuthStateChanged(auth, async (user) => {
     if (!user) return;
     const admin = await isAdmin(user.uid);
-    if (admin) { window.location.href = "admin/dashboard.html"; return; }
+    if (admin) { window.location.href = "admin-dashboard.html"; return; }
     const player = await getPlayerByUid(user.uid);
-    if (player) { window.location.href = "player/dashboard.html"; return; }
+    if (player) { window.location.href = "player-dashboard.html"; return; }
     showMsg("Your account isn't linked to a player or admin profile yet. Ask your admin to link it.");
   });
 
